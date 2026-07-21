@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: chmod +x pack.sh && ./pack.sh
+      - run: |
+          sanitized_tag="${GITHUB_REF_NAME//./-}"
+          mv dist/cn-plugin-kokoro-tts.zip dist/cn-plugin-kokoro-tts-${sanitized_tag}-linux.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: dist/*.zip
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: ./pack.ps1
+        shell: pwsh
+      - run: |
+          $sanitizedTag = $env:GITHUB_REF_NAME -replace '\.', '-'
+          Rename-Item -Path "dist\cn-plugin-kokoro-tts.zip" -NewName "cn-plugin-kokoro-tts-$sanitizedTag-windows.zip"
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/*.zip
+
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
