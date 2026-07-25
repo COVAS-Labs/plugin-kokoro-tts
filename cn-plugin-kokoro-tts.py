@@ -13,6 +13,7 @@ if os.path.isdir(DEPS_DIR) and DEPS_DIR not in sys.path:
     sys.path.insert(0, DEPS_DIR)
 
 import numpy as np
+import onnxruntime as ort
 from kokoro_onnx import Kokoro
 
 from lib.PluginHelper import TTSModel
@@ -33,6 +34,7 @@ VOICES_FILENAME = "voices-v1.0.bin"
 TARGET_SAMPLE_RATE = 24000
 STREAM_CHUNK_SAMPLES = 2400
 DEFAULT_VOICE = "af_nova"
+DEFAULT_ONNX_THREADS = max(1, (os.cpu_count() or 1) // 2)
 
 VOICE_LABELS = {
     "af_heart": "American English - Heart",
@@ -144,11 +146,12 @@ def _text_chunks(text: str, max_characters: int = 400) -> list[str]:
 class KokoroTTSModel(TTSModel):
     """Kokoro Text-to-Speech model implementation."""
 
-    def __init__(self, model_dir: str, default_voice: str, speed: float):
+    def __init__(self, model_dir: str, default_voice: str, speed: float, onnx_threads: int):
         super().__init__("kokoro-tts")
         self.model_dir = model_dir
         self.default_voice = default_voice
         self.speed = min(max(speed, 0.5), 2.0)
+        self.onnx_threads = max(1, int(onnx_threads))
         self._tts: Optional[Kokoro] = None
         self._load_lock = threading.Lock()
         self._synthesis_lock = threading.Lock()
@@ -171,7 +174,12 @@ class KokoroTTSModel(TTSModel):
                 )
 
             log("info", f"Loading Kokoro model from {model_path}")
-            self._tts = Kokoro(model_path, voices_path)
+            session_options = ort.SessionOptions()
+            session_options.intra_op_num_threads = self.onnx_threads
+            session_options.inter_op_num_threads = 1
+            providers = [os.environ.get("ONNX_PROVIDER", "CPUExecutionProvider")]
+            session = ort.InferenceSession(model_path, sess_options=session_options, providers=providers)
+            self._tts = Kokoro.from_session(session, voices_path)
             return self._tts
 
     def _resolve_voice(self, requested_voice: str) -> str:
@@ -266,6 +274,17 @@ class KokoroTTSPlugin(PluginBase):
                                 multi_select=False,
                             ),
                             NumericalSetting(
+                                key="onnx_threads",
+                                label="CPU Threads",
+                                type="number",
+                                readonly=False,
+                                placeholder=str(DEFAULT_ONNX_THREADS),
+                                default_value=DEFAULT_ONNX_THREADS,
+                                min_value=1,
+                                max_value=max(1, os.cpu_count() or 1),
+                                step=1,
+                            ),
+                            NumericalSetting(
                                 key="speed",
                                 label="Speed",
                                 type="number",
@@ -291,13 +310,14 @@ class KokoroTTSPlugin(PluginBase):
         if default_voice not in VOICE_LABELS:
             default_voice = DEFAULT_VOICE
         speed = float(settings.get("speed", 1.0))
-        return KokoroTTSModel(self.model_dir, default_voice, speed)
+        onnx_threads = int(settings.get("onnx_threads", DEFAULT_ONNX_THREADS))
+        return KokoroTTSModel(self.model_dir, default_voice, speed, onnx_threads)
 
 
 if __name__ == "__main__":
     plugin_manifest = PluginManifest(
         name="Kokoro TTS Plugin",
-        version="0.0.1",
+        version="0.0.2",
         author="COVAS:NEXT",
         description="Kokoro TTS Plugin for COVAS:NEXT",
     )
