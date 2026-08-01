@@ -12,6 +12,12 @@ DEPS_DIR = os.path.join(PLUGIN_DIR, "deps")
 if os.path.isdir(DEPS_DIR) and DEPS_DIR not in sys.path:
     sys.path.insert(0, DEPS_DIR)
 
+XML_DIR = os.path.join(DEPS_DIR, "xml")
+if "xml" in sys.modules and os.path.isdir(XML_DIR):
+    xml_path = getattr(sys.modules["xml"], "__path__", None)
+    if xml_path is not None and XML_DIR not in xml_path:
+        xml_path.insert(0, XML_DIR)
+
 import numpy as np
 import onnxruntime as ort
 from kokoro_onnx import Kokoro
@@ -317,7 +323,7 @@ class KokoroTTSPlugin(PluginBase):
 if __name__ == "__main__":
     plugin_manifest = PluginManifest(
         name="Kokoro TTS Plugin",
-        version="0.0.2",
+        version="0.0.3",
         author="COVAS:NEXT",
         description="Kokoro TTS Plugin for COVAS:NEXT",
     )

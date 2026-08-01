@@ -25,6 +25,9 @@ mkdir dist
 
 "$PYTHON_BIN" -m pip install --target ./deps -r requirements.txt
 
+STDLIB_DIR="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')"
+cp -R "$STDLIB_DIR/xml" deps/xml
+
 if [ ! -f "model/kokoro-v1.0.fp16.onnx" ] || [ ! -f "model/voices-v1.0.bin" ]; then
     chmod +x scripts/download_kokoro_assets.sh
     ./scripts/download_kokoro_assets.sh

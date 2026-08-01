@@ -24,6 +24,9 @@ if (Test-Path "deps") {
 
 & $PythonCommand @PythonArgs -m pip install --target ./deps -r requirements.txt
 
+$StdlibDir = & $PythonCommand @PythonArgs -c "import sysconfig; print(sysconfig.get_path('stdlib'))"
+Copy-Item -Recurse (Join-Path $StdlibDir "xml") "deps\xml"
+
 if ((-not (Test-Path "model\kokoro-v1.0.fp16.onnx")) -or (-not (Test-Path "model\voices-v1.0.bin"))) {
     .\scripts\download_kokoro_assets.ps1
 }
