@@ -1,7 +1,7 @@
 {
     "guid": "985973fa-3832-4c34-a3be-3f18c4fb467e",
     "name": "COVAS:NEXT Plugin Kokoro TTS",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "author": "lucaelin",
     "repository": "https://github.com/COVAS-Labs/plugin-kokoro-tts",
     "description": "Run Kokoro TTS locally using ONNX Runtime",
